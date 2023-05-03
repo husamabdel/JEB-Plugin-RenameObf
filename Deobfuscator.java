@@ -5,8 +5,6 @@ import java.util.regex.Pattern;
 import com.pnfsoftware.jeb.core.IEnginesContext;
 import com.pnfsoftware.jeb.core.units.IBinaryUnit;
 import com.pnfsoftware.jeb.core.units.code.IClass;
-import com.pnfsoftware.jeb.core.units.code.IDecompilerUnit;
-import com.pnfsoftware.jeb.core.units.code.IDecompiledUnit;
 
 public class Deobfuscator {
     
@@ -14,20 +12,15 @@ public class Deobfuscator {
     private static final Pattern CLASS_NAME_PATTERN = Pattern.compile("(\\w+\\.)*\\w+");
 
     public static void main(String[] args) {
+        // Obtain the JEB engines context
+        IEnginesContext enginesContext = new EngCfgBuilder().setEnginesHome("jeb-engines").build();
         
-        // Obtain the JEB engines context and binary unit that contains the class to deobfuscate
-        IEnginesContext context = ...; // obtain the JEB engines context
-        IBinaryUnit binaryUnit = ...; // obtain the binary unit containing the class
+        // Obtain the binary unit that contains the class
+        IBinaryUnit binaryUnit = enginesContext.getUnitFactory().getUnit(args[0]);
         
-        // Obtain the decompiler unit for the binary unit
-        IDecompilerUnit decompilerUnit = context.getUnitFactory().getDecompiler(binaryUnit);
-        
-        // Obtain the decompiled unit for the class
-        IClass decompiledClass = ...; // obtain the decompiled class using the JEB API
-        
-        // Obtain the decompiled code for the class
-        IDecompiledUnit decompiledUnit = decompilerUnit.decompileClass(decompiledClass);
-        String decompiledCode = decompiledUnit.getSource();
+        // Obtain the decompiled class
+        IClass decompiledClass = binaryUnit.getDecompiledClass();
+        String decompiledCode = decompiledClass.getSource();
         
         // Create a mapping to store the obfuscated class names and their corresponding identified class names
         HashMap<String, String> classMapping = new HashMap<String, String>();
@@ -43,7 +36,7 @@ public class Deobfuscator {
             Matcher classNameMatcher = CLASS_NAME_PATTERN.matcher(logMessage);
             if (classNameMatcher.find()) {
                 String identifiedClassName = classNameMatcher.group();
-                String obfuscatedClassName = findObfuscatedClassName(identifiedClassName);
+                String obfuscatedClassName = findObfuscatedClassName(decompiledCode, identifiedClassName);
                 classMapping.put(obfuscatedClassName, identifiedClassName);
             }
         }
@@ -54,12 +47,19 @@ public class Deobfuscator {
         }
         
         // Use the JEB API to update the decompiled code with the renamed class names
-        decompiledUnit.setContent(decompiledCode);
+        decompiledClass.updateContent(decompiledCode);
     }
     
     // This method should search the decompiled code for the obfuscated class name and return the identified class name
-    private static String findObfuscatedClassName(String identifiedClassName) {
-        // implement this method to search the decompiled code for the obfuscated class name and return it
+    private static String findObfuscatedClassName(String decompiledCode, String identifiedClassName) {
+        // Use regular expression matching to identify the obfuscated class name
+        String regex = "((?:\\w+\\.)*)" + Pattern.quote(identifiedClassName);
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(decompiledCode);
+        if (matcher.find()) {
+            return matcher.group().replace(".", "/");
+        } else {
+            return null;
+        }
     }
-
 }
